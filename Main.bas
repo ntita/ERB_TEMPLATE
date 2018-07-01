@@ -2,20 +2,25 @@ Attribute VB_Name = "Main"
 Private pInSheet As Worksheet
 Private pOutSheet As Worksheet
 Private pTLItemList As Collection
+Private pSettings As ERB_Settings
 Public CurDate As Date
 
-Public Property Get mainUTC() As Integer
-    If pmainUTC = 0 Then
-        Set EMChatHeader = InSheet.Cells.Find(What:="Timeline from CSDP", After:=InSheet.Cells(1, 1), LookIn:=xlFormulas, _
-            LookAt:=xlPart, SearchOrder:=xlByColumns, SearchDirection:=xlNext, _
-            MatchCase:=False, SearchFormat:=False)
+Public Property Get MainUTC() As Integer
+    If pMainUTC = 0 Then
+        Set EMChatHeader = InSheet.Range(Settings.CSDP_HeaderAdress)
         If EMChatHeader Is Nothing Then
-            MsgBox "Timeline from CSDP not found. The program expects a column with a three-line header, the first of which contains 'Timeline from CSDP'.", vbCritical, "Error"
+            MsgBox "Timeline from CSDP not found. See initializator of ERB_Settings class, property pCSDP_HeaderAdress.", vbCritical, "Error"
             End
         End If
-        pmainUTC = Conversion.CInt(Right(InSheet.Cells(EMChatHeader.Row + 2, EMChatHeader.Column).Value, 3))
+        pMainUTC = Conversion.CInt(Right(InSheet.Cells(EMChatHeader.Row + 2, EMChatHeader.Column).Value, 3))
     End If
-    mainUTC = pmainUTC
+    MainUTC = pMainUTC
+End Property
+Public Property Get Settings() As ERB_Settings
+    If pSettings Is Nothing Then
+        Set pSettings = New ERB_Settings
+    End If
+    Set Settings = pSettings
 End Property
 Public Property Get TLItemList() As Collection
     If pTLItemList Is Nothing Then
@@ -61,22 +66,13 @@ Sub readCSDP()
     Dim CurCell As Range
     Dim timeStamp As Date
     Dim timeSubStrLen As Date
-    Set CSDPHeader = InSheet.Cells.Find(What:="Timeline from CSDP", After:=InSheet.Cells(1, 1), LookIn:=xlFormulas, _
-        LookAt:=xlPart, SearchOrder:=xlByColumns, SearchDirection:=xlNext, _
-        MatchCase:=False, SearchFormat:=False)
+    Set CSDPHeader = InSheet.Range(Settings.CSDP_HeaderAdress)
     If CSDPHeader Is Nothing Then
-        MsgBox "Timeline from CSDP not found. The program expects a column with a three-line header, the first of which contains 'Timeline from CSDP'.", vbCritical, "Error"
+        MsgBox "Timeline from CSDP not found. See initializator of ERB_Settings class, property pCSDP_HeaderAdress.", vbCritical, "Error"
         End
     End If
-    Set DateOfEvent = InSheet.Cells.Find(What:="Date of event", After:=InSheet.Cells(1, 1), LookIn:=xlFormulas, _
-        LookAt:=xlWhole, SearchOrder:=xlByRows, SearchDirection:=xlNext, _
-        MatchCase:=False, SearchFormat:=False)
-    If DateOfEvent Is Nothing Then
-        MsgBox "Date of event not found. The program expects a table with a three-line header and one row. That row have to contain date.", vbCritical, "Error"
-        End
-    End If
-    CurDate = InSheet.Cells(DateOfEvent.Row + 3, DateOfEvent.Column).Value
-    For ind = CSDPHeader.Row + 3 To 1000000
+    CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
+    For ind = CSDPHeader.Row + Settings.CSDP_HeaderHeigth To Settings.MaxString
         Set CurCell = InSheet.Cells(ind, CSDPHeader.Column)
         If CurCell.Value = Constants.vbNullString Then
             ind = CurCell.End(xlDown).Row - 1
@@ -125,7 +121,7 @@ Sub readCSDP()
                 End If
                 TLItem.authorName = Mid(CurCell.Value, timeSubStrLen + 1 + SpaceLen, 7)
                 TLItem.cellAddress = CurCell.Row & "," & CurCell.Column
-                TLItem.chatType = 1
+                TLItem.ChatType = 1
                 TLItem.mvalue = Mid(CurCell.Value, timeSubStrLen + 1 + 7 + 2 * SpaceLen)
                 If TLItem.timeStamp < timeStamp Then
                     TLItem.timeStamp = TLItem.timeStamp + 1
@@ -137,7 +133,7 @@ Sub readCSDP()
     Next ind
     Application.StatusBar = "reading CSDP: done"
 End Sub
-Private Sub readEMChat(chatName As String, chatType As Integer, afterCell As Range)
+Private Sub readEMChat(chatName As String, ChatType As Integer, afterCell As Range)
     Dim EMChatHeader As Range
     Dim CurCell As Range
     Dim timeLen As String
@@ -147,14 +143,12 @@ Private Sub readEMChat(chatName As String, chatType As Integer, afterCell As Ran
         MatchCase:=False, SearchFormat:=False)
     If EMChatHeader Is Nothing Then
         MsgBox "Chat '" & chatName & "' not found.", vbCritical, "Error"
-        'End Sub
     End If
     If IsDate(InSheet.Cells(EMChatHeader.Row + 1, EMChatHeader.Column).Value) Then
         CurDate = InSheet.Cells(EMChatHeader.Row + 1, EMChatHeader.Column).Value
     End If
-    'EM chat #
-    EMUTC = -Right(InSheet.Cells(EMChatHeader.Row + 2, EMChatHeader.Column).Value, 3) + mainUTC
-    For ind = EMChatHeader.Row + 3 To 1000000
+    EMUTC = -Right(InSheet.Cells(EMChatHeader.Row + 2, EMChatHeader.Column).Value, 3) + MainUTC
+    For ind = EMChatHeader.Row + Settings.CSDP_HeaderHeigth To Settings.MaxString
         Set CurCell = InSheet.Cells(ind, EMChatHeader.Column)
         If CurCell.Value = Constants.vbNullString Then
             ind = CurCell.End(xlDown).Row - 1
@@ -180,7 +174,7 @@ Private Sub readEMChat(chatName As String, chatType As Integer, afterCell As Ran
                 Set TLItem = New TimelineItem
                 TLItem.authorName = Trim(Left(Trim(CurCell.Value), Len(Trim(CurCell.Value)) - 1 - timeLen))
                 TLItem.cellAddress = CurCell.Row & "," & CurCell.Column
-                TLItem.chatType = chatType
+                TLItem.ChatType = ChatType
                 TLItem.mvalue = ""
                 TLItem.timeStamp = Left(Right(Trim(CurCell.Value), 1 + timeLen), timeLen)
                 TLItem.timeStamp = TLItem.timeStamp + CurDate
@@ -197,22 +191,21 @@ Private Sub readEMChat(chatName As String, chatType As Integer, afterCell As Ran
 End Sub
 Sub readMainEMChats()
     Application.StatusBar = "reading main chats: processing..."
-    Dim MainEMChatHeader As Range
+    Dim MainEMChats As Range
     Dim CurMainChatCell As Range
     Dim EMChatHeader As Range
     Dim CurCell As Range
     Dim timeLen As String
     Dim TLItem As TimelineItem
-    Set MainEMChatHeader = InSheet.Cells.Find(What:="Main EM chat", After:=InSheet.Cells(1, 1), LookIn:=xlFormulas, _
-        LookAt:=xlWhole, SearchOrder:=xlByRows, SearchDirection:=xlNext, _
-        MatchCase:=False, SearchFormat:=False)
-    If MainEMChatHeader Is Nothing Then
-        MsgBox "Table of main chats not found. The program expects a table with a three-line header, the first of which equals 'Main EM chat'.", vbCritical, "Error"
+    Set MainEMChats = InSheet.Range(Settings.MainChats_FirstDataAdress)
+    If MainEMChats Is Nothing Then
+        MsgBox "Table of main chats not found. See initializator of ERB_Settings class, property pMainChats_FirstDataAdress.", vbCritical, "Error"
         End
     End If
-    For ind = MainEMChatHeader.Row + 3 To MainEMChatHeader.End(xlDown).End(xlDown).End(xlDown).Row
-        Set CurMainChatCell = InSheet.Cells(ind, MainEMChatHeader.Column)
-        If CurMainChatCell.Value = Constants.vbNullString Then
+    For ind = MainEMChats.Row To Settings.MaxString
+        Set CurMainChatCell = InSheet.Cells(ind, MainEMChats.Column)
+        If CurMainChatCell.Value = Constants.vbNullString _
+        Then
             Exit For
         End If
         readEMChat CurMainChatCell.Value, 2, CurMainChatCell
@@ -229,22 +222,15 @@ Sub readAdditionalEMChats()
     Dim timeLen As String
     Dim TLItem As TimelineItem
     Dim n As Integer
-    Set CSDPHeader = InSheet.Cells.Find(What:="Timeline from CSDP", After:=InSheet.Cells(1, 1), LookIn:=xlFormulas, _
-        LookAt:=xlPart, SearchOrder:=xlByColumns, SearchDirection:=xlNext, _
-        MatchCase:=False, SearchFormat:=False)
+    Set CSDPHeader = InSheet.Range(Settings.CSDP_HeaderAdress)
     n = 2
-    Set MainEMChatHeader = InSheet.Cells.Find(What:="Main EM chat", After:=InSheet.Cells(1, 1), LookIn:=xlFormulas, _
-        LookAt:=xlWhole, SearchOrder:=xlByRows, SearchDirection:=xlNext, _
-        MatchCase:=False, SearchFormat:=False)
-    If MainEMChatHeader Is Nothing Then
-        MsgBox "Table of main chats not found. The program expects a table with a three-line header, the first of which equals 'Main EM chat'.", vbCritical, "Error"
-        End
-    End If
-    For jnd = 1 To 1000
+    Set MainEMChatHeader = InSheet.Range(Settings.MainChats_FirstDataAdress)
+    For jnd = CSDPHeader.Column + 1 To Settings.MaxColumn
         Set CurCell = InSheet.Cells(CSDPHeader.Row, jnd)
-        If CurCell.Value Like "EM chat*" Then
+        If CurCell.Value Like Settings.MainChat_HeaderMask _
+        Then
             isMain = False
-            For ind = MainEMChatHeader.Row + 3 To MainEMChatHeader.End(xlDown).End(xlDown).End(xlDown).Row
+            For ind = MainEMChatHeader.Row To Settings.MaxString
                 Set CurMainChatCell = InSheet.Cells(ind, MainEMChatHeader.Column)
                 If CurMainChatCell.Value = Constants.vbNullString Then
                     Exit For
@@ -277,7 +263,7 @@ Private Sub sortTimeLine(CSDPTimeline As Range)
     Application.StatusBar = "sorting timeline: done"
 End Sub
 Private Sub renderCSDP()
-    ActiveCell.MergeArea.Cells.Count
+    InSheet.Columns(10).Cells(xlLastCell).Activate
 End Sub
 Private Sub multyplySampleRow(CSDPTimeline As Range)
     ' prepare space by multiplying sample string
@@ -420,16 +406,16 @@ Sub reprintTimeLine()
             Exit For
         End If
         Set TLItem = TLItemList(myCell.Value)
-        If TLItem.chatType = 1 Then
+        If TLItem.ChatType = 1 Then
             OutSheet.Cells(myCell.Row, CSDPReportedBy.Column) = TLItem.authorName
             OutSheet.Cells(myCell.Row, CSDPMessage.Column) = TLItem.mvalue
             myCell.Value = Null
-        ElseIf TLItem.chatType > 1 Then
+        ElseIf TLItem.ChatType > 1 Then
             OutSheet.Cells(myCell.Row, CSDPTimeline.Column).Value = Null
             a = Split(TLItem.cellAddress, ",", 2)
-            OutSheet.Cells(myCell.Row, EMChats(TLItem.chatType, 0).Column).Value = InSheet.Cells(Conversion.CInt(a(0)), Conversion.CInt(a(1))).Value
+            OutSheet.Cells(myCell.Row, EMChats(TLItem.ChatType, 0).Column).Value = InSheet.Cells(Conversion.CInt(a(0)), Conversion.CInt(a(1))).Value
             myCell.Value = Null
-            OutSheet.Cells(myCell.Row, EMChats(TLItem.chatType, 1).Column).Value = InSheet.Cells(Conversion.CInt(a(0)) + 1, Conversion.CInt(a(1))).Value
+            OutSheet.Cells(myCell.Row, EMChats(TLItem.ChatType, 1).Column).Value = InSheet.Cells(Conversion.CInt(a(0)) + 1, Conversion.CInt(a(1))).Value
             j = 0
             For i = 2 To 50
                 tvalue = InSheet.Cells(Conversion.CInt(a(0)) + i, Conversion.CInt(a(1))).Value
@@ -442,9 +428,9 @@ Sub reprintTimeLine()
                 If (Trim(tvalue) = Constants.vbNullString) Then
                     j = j - 1
                 Else
-                    OutSheet.Cells(myCell.Row + i + j - 1, EMChats(TLItem.chatType, 1).Column).EntireRow.Insert
+                    OutSheet.Cells(myCell.Row + i + j - 1, EMChats(TLItem.ChatType, 1).Column).EntireRow.Insert
                     ind = ind + 1
-                    OutSheet.Cells(myCell.Row + i + j - 1, EMChats(TLItem.chatType, 1).Column).Value = InSheet.Cells(Conversion.CInt(a(0)) + i, Conversion.CInt(a(1))).Value
+                    OutSheet.Cells(myCell.Row + i + j - 1, EMChats(TLItem.ChatType, 1).Column).Value = InSheet.Cells(Conversion.CInt(a(0)) + i, Conversion.CInt(a(1))).Value
                 End If
             Next i
         End If
@@ -469,7 +455,7 @@ Sub Main()
     reprintTimeLine
     
     For ind = 1 To TLItemList.Count
-        If TLItemList(ind).chatType <> 1 Then
+        If TLItemList(ind).ChatType <> 1 Then
             For j = 1 To 1000
                 If j + 3 = OutSheet.Cells(3, 9).End(xlDown).Row Then
                     OutSheet.Cells(OutSheet.Cells(3, 9).End(xlDown).Row + 1, 1).EntireRow.Insert
