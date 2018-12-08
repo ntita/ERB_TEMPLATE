@@ -7,15 +7,15 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
-Private pchatType As Integer
+Private pChatType As Integer
 Private ptimeStamp As Date
 Private pauthorName As String
 Private pcellAddress As String
 Private pmvalue As String
 
 ' геттеры
-Public Property Get chatType() As Integer
-    chatType = pchatType
+Public Property Get ChatType() As Integer
+    ChatType = pChatType
 End Property
 Public Property Get timeStamp() As Date
     timeStamp = ptimeStamp
@@ -31,8 +31,8 @@ Public Property Get mvalue() As String
 End Property
 
 ' сеттеры
-Public Property Let chatType(ByVal newchatType As Integer)
-    pchatType = newchatType
+Public Property Let ChatType(ByVal newChatType As Integer)
+    pChatType = newChatType
 End Property
 Public Property Let timeStamp(ByVal newtimeStamp As Date)
     ptimeStamp = newtimeStamp
@@ -48,12 +48,10 @@ Public Property Let mvalue(ByVal newmvalue As String)
 End Property
 
 ' конструктор
-Public Sub TimelineItem_Initialize()
-    chatType = 0
-    timeStamp = Null
-    authorName = ""
-    cellAddress = ""
+Private Sub Class_Initialize()
+    pChatType = 0
+    ptimeStamp = DateTime.Now
+    pauthorName = ""
+    pcellAddress = ""
     pmvalue = ""
 End Sub
-
-'
