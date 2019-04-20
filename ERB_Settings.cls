@@ -45,6 +45,3 @@ Private Sub Class_Initialize()
     pMaxString = 1048575
     pMaxColumn = 16382
 End Sub
-
-
-
