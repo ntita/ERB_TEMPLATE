@@ -533,3 +533,128 @@ Sub recolor()
         End If
     Next i
 End Sub
+
+Sub createERB_Template_Timeline()
+    'longInt, cell amount
+    Dim lCA As Long
+    'Address of cell on auxiliary sheet to copy
+    Dim CellAdrAux As String
+    CellAdrAux = "A2"
+    'string, auxiliary sheet name
+    Dim AuxSheetName As String
+    AuxSheetName = Settings.AuxSheet_Prefix & "Timeline"
+    'norm vars
+    '****************************
+    Dim re As Object
+    Set re = CreateObject("VBScript.RegExp")
+    Dim CurDate As Date
+    '****************************
+    'end norm vars
+    'copy chat to new list
+    With InSheet
+        If IsEmpty(.[Settings.TimeLine_CellAdrTrg]) Then MsgBox "Cannot find CSDP timeline, check the settings", vbCritical, "Error"
+        If Not IsSheetHereByName(AuxSheetName) Then
+            Sheets.Add After:=Sheets(Sheets.Count)
+            Sheets(Sheets.Count).Name = AuxSheetName
+        Else
+            Sheets(AuxSheetName).Cells.ClearContents
+        End If
+        Sheets(AuxSheetName).[A1:D1] = Array("Id", "DateOf", "AutorOf", "Note")
+        lCA = .Cells(.Rows.Count, .Range(Settings.TimeLine_CellAdrTrg).Column).End(xlUp).Row - .Range(Settings.TimeLine_CellAdrTrg).Row + 1
+        .Range(Settings.TimeLine_CellAdrTrg).Resize(lCA).Copy Sheets(AuxSheetName).Range(CellAdrAux)
+    End With
+    With re
+        .Global = False
+        .IgnoreCase = True
+        .Pattern = Settings.TimeLine_RegExp
+    End With
+    CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
+    With Sheets(AuxSheetName)
+        For Each cl In .Range(CellAdrAux).Resize(lCA)
+            For Each M In re.Execute(cl.Value) ' цикл по MatchColection (по всем найденным соответствиям)
+                If Not IsDate(M.SubMatches(0)) _
+                Then
+                    .Cells(cl.Row, 2) = .Cells(cl.Row - 1, 2) ' если нет временной метки, то считаем, что она совпадает с предыдущей строкой
+                Else
+                    .Cells(cl.Row, 2) = CurDate + CDate(M.SubMatches(0)) ' время записи (первая группа соответствия)
+                End If
+                .Cells(cl.Row, 3) = M.SubMatches(1) ' автор записи (вторая группа соответствия)
+                .Cells(cl.Row, 4) = M.SubMatches(2) ' описание события (третья группа соответствия)
+            Next M
+            .Cells(cl.Row, 1) = cl.Row ' id записи (совпадает с номером строки)
+        Next cl
+        .Columns.AutoFit
+    End With
+End Sub
+Sub createERB_Template_Chat()
+    'longint, cells amount
+    Dim lCA As Long
+    'longint, counter
+    Dim i As Long
+    'Address of cell on auxiliary sheet to copy
+    Dim CellAdrAux As String
+    CellAdrAux = "A2"
+    'string, prefix for technical lists
+    Dim AuxSheetName As String
+    AuxSheetName = Settings.AuxSheet_Prefix & "Chat_" & InSheet.Range(Settings.Chat_CellAdrTrg).Column
+    'norm vars
+    '****************************
+    Dim re As Object
+    Set re = CreateObject("VBScript.RegExp")
+    Dim CurDate As Date
+    '****************************
+    'end norm vars
+    'copy chat to new list
+    With InSheet
+        If IsEmpty(.[Settings.Chat_CellAdrTrg]) Then MsgBox "Cannot find chat, check the settings", vbCritical, "Error"
+        If Not IsSheetHereByName(AuxSheetName) Then
+            Sheets.Add After:=Sheets(Sheets.Count)
+            Sheets(Sheets.Count).Name = AuxSheetName
+        Else
+            Sheets(AuxSheetName).Cells.ClearContents
+        End If
+        Sheets(AuxSheetName).[A1:D1] = Array("Id", "DateOf", "AutorOf", "Note")
+        lCA = .Cells(.Rows.Count, .Range(Settings.Chat_CellAdrTrg).Column).End(xlUp).Row - .Range(Settings.Chat_CellAdrTrg).Row + 1
+    End With
+    With re
+        .Global = False
+        .IgnoreCase = True
+        .Pattern = Settings.Chat_RegExp
+    End With
+    CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
+    With Sheets(AuxSheetName)
+        i = .Range(CellAdrAux).Row - 1
+        For Each cl In InSheet.Range(Settings.Chat_CellAdrTrg).Resize(lCA)
+            If re.Test(cl.Value) Then
+                i = i + 1
+                For Each M In re.Execute(cl.Value) ' цикл по MatchColection (по всем найденным соответствиям)
+                    .Cells(i, 3) = M.SubMatches(0) ' автор записи (первая группа соответствия)
+                    If Not IsDate(M.SubMatches(1)) _
+                    Then
+                        .Cells(i, 2) = .Cells(i - 1, 2) ' если нет временной метки, то считаем, что она совпадает с предыдущей строкой
+                    Else
+                        .Cells(i, 2) = CurDate + CDate(M.SubMatches(1)) ' время записи (вторая группа соответствия)
+                    End If
+                Next M
+            Else
+                If IsEmpty(.Cells(i, 4)) Then
+                    .Cells(i, 4) = cl
+                Else
+                    .Cells(i, 4) = .Cells(i, 4) & vbLf & cl
+                End If
+            End If
+            .Cells(i, 1) = i ' id записи (совпадает с номером строки)
+        Next cl
+        .Columns.AutoFit
+    End With
+End Sub
+
+Function IsSheetHereByName(aName As String) As Boolean
+    IsSheetHereByName = False
+    For Each sh In Sheets
+        If sh.Name = aName Then
+            IsSheetHereByName = True
+            Exit Function
+        End If
+    Next
+End Function

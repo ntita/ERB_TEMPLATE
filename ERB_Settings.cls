@@ -14,6 +14,11 @@ Private pMainChat_HeaderMask As String
 Private pDateOfEvent_Address As String
 Private pMaxString As Long
 Private pMaxColumn As Long
+Private pTimeLine_RegExp As String
+Private pTimeLine_CellAdrTrg As String
+Private pChat_RegExp As String
+Private pChat_CellAdrTrg As String
+Private pAuxSheet_Prefix As String
 ' геттеры
 Public Property Get CSDP_HeaderAdress() As String
     CSDP_HeaderAdress = pCSDP_HeaderAdress
@@ -36,6 +41,21 @@ End Property
 Public Property Get MainChat_HeaderMask() As String
     MainChat_HeaderMask = pMainChat_HeaderMask
 End Property
+Public Property Get TimeLine_RegExp() As String
+    TimeLine_RegExp = pTimeLine_RegExp
+End Property
+Public Property Get TimeLine_CellAdrTrg() As String
+    TimeLine_CellAdrTrg = pTimeLine_CellAdrTrg
+End Property
+Public Property Get AuxSheet_Prefix() As String
+    AuxSheet_Prefix = pAuxSheet_Prefix
+End Property
+Public Property Get Chat_RegExp() As String
+    Chat_RegExp = pChat_RegExp
+End Property
+Public Property Get Chat_CellAdrTrg() As String
+    Chat_CellAdrTrg = pChat_CellAdrTrg
+End Property
 Private Sub Class_Initialize()
     pCSDP_HeaderAdress = "J2"
     pCSDP_HeaderHeigth = 3
@@ -44,4 +64,12 @@ Private Sub Class_Initialize()
     pMainChats_FirstDataAdress = "D10"
     pMaxString = 1048575
     pMaxColumn = 16382
+    pAuxSheet_Prefix = "ERB_Template_"
+    ' CSDP Timeline normilize
+    pTimeLine_RegExp = "(\d?\d:\d\d)? ?(\w{7})(.*)"
+    pTimeLine_CellAdrTrg = "J5"
+    ' chat normilize
+    pChat_RegExp = "(\w+ \w+) (\d\d:\d\d):"
+    pChat_CellAdrTrg = "L5"
+    ' end normilize
 End Sub
