@@ -4,7 +4,6 @@ Private pOutSheet As Worksheet
 Private pTLItemList As Collection
 Private pSettings As ERB_Settings
 Public CurDate As Date
-
 Public Property Get MainUTC() As Integer
     If pMainUTC = 0 Then
         Set EMChatHeader = InSheet.Range(Settings.CSDP_HeaderAdress)
@@ -550,6 +549,7 @@ Sub createERB_Template_Timeline()
     Dim CurDate As Date
     '****************************
     'end norm vars
+    Application.ScreenUpdating = False
     'copy chat to new list
     With InSheet
         If IsEmpty(.[Settings.TimeLine_CellAdrTrg]) Then MsgBox "Cannot find CSDP timeline, check the settings", vbCritical, "Error"
@@ -571,12 +571,20 @@ Sub createERB_Template_Timeline()
     CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
     With Sheets(AuxSheetName)
         For Each cl In .Range(CellAdrAux).Resize(lCA)
+            If Int(100 * cl.Row / lCA) <> prevPrc Then
+                Application.StatusBar = "Выполнено: " & Format(Int(100 * (cl.Row - 1) / lCA), "##0") & "%" & String(CLng(20 * (cl.Row - 1) / lCA), ChrW(9632))
+            End If
+            prevPrc = Int(100 * (cl.Row - InSheet.Range(Settings.TimeLine_CellAdrTrg).Row + 1) / lCA)
             For Each M In re.Execute(cl.Value) ' цикл по MatchColection (по всем найденным соответствиям)
                 If Not IsDate(M.SubMatches(0)) _
                 Then
-                    .Cells(cl.Row, 2) = .Cells(cl.Row - 1, 2) ' если нет временной метки, то считаем, что она совпадает с предыдущей строкой
+                    .Cells(cl.Row, 2) = .Cells(cl.Row - 1, 2).Value ' если нет временной метки, то считаем, что она совпадает с предыдущей строкой
                 Else
                     .Cells(cl.Row, 2) = CurDate + CDate(M.SubMatches(0)) ' время записи (первая группа соответствия)
+                End If
+                If .Cells(cl.Row, 2) < .Cells(cl.Row - 1, 2) Then
+                    CurDate = CurDate + 1
+                    .Cells(cl.Row, 2) = .Cells(cl.Row, 2) + 1
                 End If
                 .Cells(cl.Row, 3) = M.SubMatches(1) ' автор записи (вторая группа соответствия)
                 .Cells(cl.Row, 4) = M.SubMatches(2) ' описание события (третья группа соответствия)
@@ -585,8 +593,10 @@ Sub createERB_Template_Timeline()
         Next cl
         .Columns.AutoFit
     End With
+    Application.StatusBar = "done"
+    Application.ScreenUpdating = True
 End Sub
-Sub createERB_Template_Chat()
+Sub createERB_Template_Chat(CellAdrTrg As String)
     'longint, cells amount
     Dim lCA As Long
     'longint, counter
@@ -596,7 +606,9 @@ Sub createERB_Template_Chat()
     CellAdrAux = "A2"
     'string, prefix for technical lists
     Dim AuxSheetName As String
-    AuxSheetName = Settings.AuxSheet_Prefix & "Chat_" & InSheet.Range(Settings.Chat_CellAdrTrg).Column
+    AuxSheetName = Settings.AuxSheet_Prefix & "Chat_" & InSheet.Range(CellAdrTrg).Column
+    Dim Feature As String
+    Feature = IsThisChatMain(CellAdrTrg)
     'norm vars
     '****************************
     Dim re As Object
@@ -606,15 +618,15 @@ Sub createERB_Template_Chat()
     'end norm vars
     'copy chat to new list
     With InSheet
-        If IsEmpty(.[Settings.Chat_CellAdrTrg]) Then MsgBox "Cannot find chat, check the settings", vbCritical, "Error"
+        If IsEmpty(.[CellAdrTrg]) Then MsgBox "Cannot find chat, check the settings", vbCritical, "Error"
         If Not IsSheetHereByName(AuxSheetName) Then
             Sheets.Add After:=Sheets(Sheets.Count)
             Sheets(Sheets.Count).Name = AuxSheetName
         Else
             Sheets(AuxSheetName).Cells.ClearContents
         End If
-        Sheets(AuxSheetName).[A1:D1] = Array("Id", "DateOf", "AutorOf", "Note")
-        lCA = .Cells(.Rows.Count, .Range(Settings.Chat_CellAdrTrg).Column).End(xlUp).Row - .Range(Settings.Chat_CellAdrTrg).Row + 1
+        Sheets(AuxSheetName).[A1:E1] = Array("Id", "DateOf", "AutorOf", "Note", "Feature")
+        lCA = .Cells(.Rows.Count, .Range(CellAdrTrg).Column).End(xlUp).Row - .Range(CellAdrTrg).Row + 1
     End With
     With re
         .Global = False
@@ -624,7 +636,11 @@ Sub createERB_Template_Chat()
     CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
     With Sheets(AuxSheetName)
         i = .Range(CellAdrAux).Row - 1
-        For Each cl In InSheet.Range(Settings.Chat_CellAdrTrg).Resize(lCA)
+        For Each cl In InSheet.Range(CellAdrTrg).Resize(lCA)
+            If Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA) <> prevPrc Then
+                Application.StatusBar = "Выполнено: " & Format(Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), "##0") & "%" & String(CLng(20 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), ChrW(9632)) '& String(20 - CLng(20 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), ChrW(9633))
+            End If
+            prevPrc = Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA)
             If re.Test(cl.Value) Then
                 i = i + 1
                 For Each M In re.Execute(cl.Value) ' цикл по MatchColection (по всем найденным соответствиям)
@@ -635,7 +651,12 @@ Sub createERB_Template_Chat()
                     Else
                         .Cells(i, 2) = CurDate + CDate(M.SubMatches(1)) ' время записи (вторая группа соответствия)
                     End If
+                    If .Cells(i, 2) < .Cells(i - 1, 2) Then
+                        CurDate = CurDate + 1
+                        .Cells(i, 2) = .Cells(i, 2) + 1
+                    End If
                 Next M
+                .Cells(i, 5) = Feature
             Else
                 If IsEmpty(.Cells(i, 4)) Then
                     .Cells(i, 4) = cl
@@ -648,7 +669,21 @@ Sub createERB_Template_Chat()
         .Columns.AutoFit
     End With
 End Sub
-
+Sub createERB_Template_All_Chats()
+    Application.StatusBar = "loading..."
+    With InSheet
+        For Each cl In .Range(.Range(Settings.Chat_CellAdrTrg), .Cells(.Range(Settings.Chat_CellAdrTrg).Row, .Columns.Count).End(xlToLeft))
+            Application.ScreenUpdating = False
+            createERB_Template_Chat (cl.Address)
+            Application.ScreenUpdating = True
+        Next cl
+    End With
+    Application.StatusBar = "done"
+End Sub
+Sub normalize()
+    createERB_Template_Timeline
+    createERB_Template_All_Chats
+End Sub
 Function IsSheetHereByName(aName As String) As Boolean
     IsSheetHereByName = False
     For Each sh In Sheets
@@ -657,4 +692,15 @@ Function IsSheetHereByName(aName As String) As Boolean
             Exit Function
         End If
     Next
+End Function
+Function IsThisChatMain(aCellAdr As String) As String
+    IsThisChatMain = "Additional"
+    With InSheet
+        For Each cl In .Range(Settings.MainChats_FirstDataAdress).CurrentRegion
+            If cl.Value = .Cells(.Range(aCellAdr).Row - 3, .Range(aCellAdr).Column).Value Then
+                IsThisChatMain = "Main"
+                Exit Function
+            End If
+        Next cl
+    End With
 End Function

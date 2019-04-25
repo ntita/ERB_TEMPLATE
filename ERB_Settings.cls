@@ -19,7 +19,7 @@ Private pTimeLine_CellAdrTrg As String
 Private pChat_RegExp As String
 Private pChat_CellAdrTrg As String
 Private pAuxSheet_Prefix As String
-' геттеры
+' ???????
 Public Property Get CSDP_HeaderAdress() As String
     CSDP_HeaderAdress = pCSDP_HeaderAdress
 End Property
@@ -69,7 +69,7 @@ Private Sub Class_Initialize()
     pTimeLine_RegExp = "(\d?\d:\d\d)? ?(\w{7})(.*)"
     pTimeLine_CellAdrTrg = "J5"
     ' chat normilize
-    pChat_RegExp = "(\w+ \w+) (\d\d:\d\d):"
+    pChat_RegExp = "^(.*) (\d?\d:\d\d):\s*$"
     pChat_CellAdrTrg = "L5"
     ' end normilize
 End Sub
