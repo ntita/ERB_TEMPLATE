@@ -19,6 +19,9 @@ Private pTimeLine_CellAdrTrg As String
 Private pChat_RegExp As String
 Private pChat_CellAdrTrg As String
 Private pAuxSheet_Prefix As String
+Private pInSheetName As String
+Private pOutSheetName As String
+Private pTechSheetName As String
 ' ???????
 Public Property Get CSDP_HeaderAdress() As String
     CSDP_HeaderAdress = pCSDP_HeaderAdress
@@ -56,20 +59,34 @@ End Property
 Public Property Get Chat_CellAdrTrg() As String
     Chat_CellAdrTrg = pChat_CellAdrTrg
 End Property
+Public Property Get TechSheetName() As String
+    TechSheetName = pTechSheetName
+End Property
+Public Property Get InSheetName() As String
+    InSheetName = pInSheetName
+End Property
+Public Property Get OutSheetName() As String
+    OutSheetName = pOutSheetName
+End Property
 Private Sub Class_Initialize()
     pCSDP_HeaderAdress = "J2"
     pCSDP_HeaderHeigth = 3
     pDateOfEvent_Address = "D5"
-    pMainChat_HeaderMask = "EM chat*"
     pMainChats_FirstDataAdress = "D10"
     pMaxString = 1048575
     pMaxColumn = 16382
-    pAuxSheet_Prefix = "ERB_Template_"
+    ' sheets names
+    pTechSheetName = "backgound_tech_list"
+    pInSheetName = "Input list"
+    pOutSheetName = "Prepared timeline output"
+    pAuxSheet_Prefix = "ERB_Template_Chat"
     ' CSDP Timeline normilize
+    ' RegExp: group #1 - timestamp, #2 - author, #3 - event full name
     pTimeLine_RegExp = "(\d?\d:\d\d)? ?(\w{7})(.*)"
     pTimeLine_CellAdrTrg = "J5"
     ' chat normilize
-    pChat_RegExp = "^(.*) (\d?\d:\d\d):\s*$"
+    ' RegExp: group #1 - raw header, #2 - author, #3 - timestamp
+    pChat_RegExp = "^((.*) (\d?\d:\d\d):)\s*$"
     pChat_CellAdrTrg = "L5"
     ' end normilize
 End Sub
