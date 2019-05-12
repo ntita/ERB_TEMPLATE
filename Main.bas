@@ -9,6 +9,7 @@ Private pMainUTC As Integer
 Private pTeam As Object
 Public CurDate As Date
 Public AdditionalCount As Integer
+Private pOutputBegin As Integer
 Public Property Get MainUTC() As Integer
     If pMainUTC = 0 Then
         Set EMChatHeader = InSheet.Range(Settings.CSDP_HeaderAdress)
@@ -86,6 +87,30 @@ Public Property Get AuxSheet() As Worksheet
     End If
     Set AuxSheet = pAuxSheet
 End Property
+Public Property Get OutputBegin() As Integer
+    If pOutputBegin = 0 Then
+        With OutSheet
+            For Each cl In .Range(.Cells(1, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV))
+                If cl.Value = "EV" Then
+                    pOutputBegin = cl.Row + 1
+                    Exit For
+                End If
+            Next cl
+        End With
+    End If
+    OutputBegin = pOutputBegin
+End Property
+Public Property Set OutputBegin(aOutputBegin)
+    With OutSheet
+        For Each cl In .Range(.Cells(1, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV))
+            If cl.Value = "EV" Then
+                pOutputBegin = cl.Row + 1
+                Exit For
+            End If
+        Next cl
+    End With
+    OutputBegin = pOutputBegin
+End Property
 Sub createERB_Template_Timeline()
     'longInt, cell amount
     Dim lCA As Long
@@ -122,12 +147,12 @@ Sub createERB_Template_Timeline()
         .Pattern = Settings.TimeLine_RegExp
     End With
     CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
-    Application.StatusBar = "CSDP: " & Format(0, "000") & "%"
+    Application.StatusBar = "CSDP: " & Format(0, "##0") & "%"
     With Sheets(AuxSheetName)
         For Each cl In .Range(CellAdrAux).Resize(lCA)
             ' вывод состояния для наглядности, если состояние поменялось
             If Int(100 * cl.Row / lCA) <> prevPrc Then
-                Application.StatusBar = "CSDP: " & Format(Int(100 * (cl.Row - 1) / lCA), "000") & "%" & String(CLng(20 * (cl.Row - 1) / lCA), ChrW(9632))
+                Application.StatusBar = "CSDP: " & Format(Int(100 * (cl.Row - 1) / lCA), "##0") & "%" & String(CLng(20 * (cl.Row - 1) / lCA), ChrW(9632))
             End If
             ' запонимаем состояние
             prevPrc = Int(100 * (cl.Row - InSheet.Range(Settings.TimeLine_CellAdrTrg).Row + 1) / lCA)
@@ -200,6 +225,7 @@ Sub createERB_Template_Chat(CellAdrTrg As String)
         If Not IsSheetHereByName(AuxSheetName) Then
             Sheets.Add After:=Sheets(Sheets.Count)
             Sheets(Sheets.Count).Name = AuxSheetName
+            Sheets(Sheets.Count).Cells.Interior.PatternColorIndex = xlAutomatic
         End If
         lCA = .Cells(.Rows.Count, .Range(CellAdrTrg).Column).End(xlUp).Row - .Range(CellAdrTrg).Row + 1
     End With
@@ -213,12 +239,12 @@ Sub createERB_Template_Chat(CellAdrTrg As String)
         .Pattern = Settings.Chat_RegExp
     End With
     CurDate = InSheet.Range(Settings.DateOfEvent_Address).Value
-    Application.StatusBar = Name & ": " & Format(0, "000") & "%"
+    Application.StatusBar = Name & ": " & Format(0, "##0") & "%"
     With Sheets(AuxSheetName)
         i = .[A1].CurrentRegion.Rows.Count
         For Each cl In InSheet.Range(CellAdrTrg).Resize(lCA)
             If Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA) <> prevPrc Then
-                Application.StatusBar = Name & ": " & Format(Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), "000") & "%" & String(CLng(20 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), ChrW(9632))
+                Application.StatusBar = Name & ": " & Format(Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), "##0") & "%" & String(CLng(20 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA), ChrW(9632))
             End If
             prevPrc = Int(100 * (cl.Row - .Range(CellAdrTrg).Row + 1) / lCA)
             If re.Test(cl.Value) Then
@@ -276,6 +302,7 @@ Sub normalize()
         If Not IsSheetHereByName(AuxSheetName) Then
             Sheets.Add After:=Sheets(Sheets.Count)
             Sheets(Sheets.Count).Name = AuxSheetName
+            Sheets(Sheets.Count).Cells.Interior.PatternColorIndex = xlAutomatic
         Else
             Sheets(AuxSheetName).Cells.ClearContents
         End If
@@ -290,7 +317,7 @@ Sub normalize()
 End Sub
 Sub outputCSDPnChat()
     Application.StatusBar = "Delete old output... in progress"
-    With OutSheet.Rows("25:" & OutSheet.Rows.Count)
+    With OutSheet.Rows(OutputBegin & ":" & OutSheet.Rows.Count)
         .Clear
         .Interior.PatternColorIndex = xlAutomatic
     End With
@@ -311,7 +338,7 @@ Sub outputCSDPnChat()
             , Array(AuxColumns.Chatmessage, OutColumns.Chatmessage, AdditionalCount))
             For i = 0 To Item(2)
                 Application.StatusBar = "Copying " & amount & " rows from aux column " & Item(0) & " to out column " & Item(1) & "..."
-                .Cells(2, Item(0) + 2 * i).Resize(amount).Copy OutSheet.Cells(25, Item(1) + 45 * i)
+                .Cells(2, Item(0) + 2 * i).Resize(amount).Copy OutSheet.Cells(OutputBegin, Item(1) + 45 * i)
             Next i
         Next Item
     End With
@@ -322,18 +349,18 @@ Sub RenderCSDPnChat()
     Application.StatusBar = "Merge cells: " & Format(0, "##0") & "%"
     With OutSheet
         For i = 1 To amount
-            Application.StatusBar = "Merge cells: " & Format(Int(100 * i / amount), "000") & "%" & String(CLng(20 * i / amount), ChrW(9632))
+            Application.StatusBar = "Merge cells: " & Format(Int(100 * i / amount), "##0") & "%" & String(CLng(20 * i / amount), ChrW(9632))
             For Each Item In Array(Array(4, 6), Array(11, 5), Array(16, 9), Array(25, 54))
-                If .Cells(24 + i, Item(0)).Value <> "" Then
-                    .Cells(24 + i, Item(0)).Resize(, Item(1)).Merge
+                If .Cells(OutputBegin - 1 + i, Item(0)).Value <> "" Then
+                    .Cells(OutputBegin - 1 + i, Item(0)).Resize(, Item(1)).Merge
                 End If
             Next Item
             For j = 0 To AdditionalCount
-                If .Cells(24 + i, 81 + 45 * j).Value <> "" Then
-                    .Cells(24 + i, 81 + 45 * j).Resize(, 12).Merge
+                If .Cells(OutputBegin - 1 + i, 81 + 45 * j).Value <> "" Then
+                    .Cells(OutputBegin - 1 + i, 81 + 45 * j).Resize(, 12).Merge
                 End If
-                If .Cells(24 + i, 93 + 45 * j).Value <> "" Then
-                    .Cells(24 + i, 93 + 45 * j).Resize(, 33).Merge
+                If .Cells(OutputBegin - 1 + i, 93 + 45 * j).Value <> "" Then
+                    .Cells(OutputBegin - 1 + i, 93 + 45 * j).Resize(, 33).Merge
                 End If
             Next j
         Next i
@@ -358,9 +385,9 @@ End Sub
 Sub RecolorChat()
     With OutSheet
         For i = 0 To 20
-            amount = .Range(.Cells(25, OutColumns.ChatName_timestamp + i * 45), .Cells(.Rows.Count, OutColumns.ChatName_timestamp + i * 45).End(xlUp)).Rows.Count
-            For Each cl In .Range(.Cells(25, OutColumns.ChatName_timestamp + i * 45), .Cells(.Rows.Count, OutColumns.ChatName_timestamp + i * 45).End(xlUp))
-                If cl.Row - 24 > 0 Then Application.StatusBar = "Recolor chat #" & i & ": " & Format(Int(100 * (cl.Row - 24) / amount), "000") & "%" & String(CLng(20 * (cl.Row - 24) / amount), ChrW(9632))
+            amount = .Range(.Cells(OutputBegin, OutColumns.ChatName_timestamp + i * 45), .Cells(.Rows.Count, OutColumns.ChatName_timestamp + i * 45).End(xlUp)).Rows.Count
+            For Each cl In .Range(.Cells(OutputBegin, OutColumns.ChatName_timestamp + i * 45), .Cells(.Rows.Count, OutColumns.ChatName_timestamp + i * 45).End(xlUp))
+                If cl.Row - OutputBegin + 1 > 0 Then Application.StatusBar = "Recolor chat #" & i & ": " & Format(Int(100 * (cl.Row - OutputBegin + 1) / amount), "##0") & "%" & String(CLng(20 * (cl.Row - OutputBegin + 1) / amount), ChrW(9632))
                 If cl.Value <> "" Then
                     For Each emp In Team.Keys()
                         If InStr(cl.Value, emp) <> 0 Then
@@ -378,7 +405,9 @@ Sub RecolorChat()
 End Sub
 Sub reprintTimeline()
     With OutSheet
-        With .[L5].Resize(8, 113)
+        chain_len = .[K5].End(xlDown).Row - .[L5].Row
+        timeline_width = .Cells(4, .Columns.Count).End(xlToLeft).Column - .[L4].Column + .Cells(4, .Columns.Count).End(xlToLeft).MergeArea.Cells.Count
+        With .[L5].Resize(chain_len, timeline_width)
             .Clear
             .Interior.PatternColorIndex = xlAutomatic
         End With
@@ -386,15 +415,21 @@ Sub reprintTimeline()
         cc = .[L5].Column
         exam_cr = cr
         exam_cc = cc
-        amount = .Range(.Cells(25, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp)).Rows.Count
-        For Each cl In .Range(.Cells(25, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp))
-            Application.StatusBar = "Reprint timeline: " & Format(Int(100 * (cl.Row - 24) / amount), "000") & "%" & String(CLng(20 * (cl.Row - 24) / amount), ChrW(9632))
+        amount = .Range(.Cells(OutputBegin, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp)).Rows.Count
+        For Each cl In .Range(.Cells(OutputBegin, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp))
+            Application.StatusBar = "Reprint timeline: " & Format(Int(100 * (cl.Row - OutputBegin + 1) / amount), "##0") & "%" & String(CLng(20 * (cl.Row - OutputBegin + 1) / amount), ChrW(9632))
             If cl.Value = "RP" Or cl.Value = "RI" Or cl.Value = "ESt" Then
                 exam_cc = exam_cc + 26
                 cr = exam_cr
                 cc = exam_cc
             End If
             If cl.Value = "*" Then
+                If cr - .[L5].Row >= chain_len Then
+                    .Cells(cr - 1, cc).EntireRow.Insert
+                    .Cells(cr, "L").Resize(, timeline_width).Cut OutSheet.Cells(cr - 1, "L")
+                    .Cells(cr, "L").Resize(, timeline_width).Interior.PatternColorIndex = xlAutomatic
+                    '.Cells(cr, "C").Resize(.Cells(cr, "D").End(xlDown).Row - cr + 1, 7).Cut OutSheet.Cells(cr - 1, "C")
+                End If
                 With .Cells(cr, cc)
                     .Value = Format(cl.Offset(, 9).Value, "h:mm")
                     .Font.Size = 8
@@ -478,7 +513,10 @@ Function GetSheet(aSheetName As String) As Worksheet
         Next sh
         If aSheetName = Settings.AuxSheetName Then
             .Sheets.Add After:=Sheets(Sheets.Count)
-            .Sheets(Sheets.Count).Name = aSheetName
+            With .Sheets(Sheets.Count)
+                .Name = aSheetName
+                .Cells.Interior.PatternColorIndex = xlAutomatic
+            End With
         Else
             MsgBox "Sheet called '" & aSheetName & "' not found. Please, check the ERB_Settings", vbCritical, "Error"
         End If
