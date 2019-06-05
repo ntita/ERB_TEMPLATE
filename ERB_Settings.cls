@@ -101,11 +101,13 @@ Private Sub Class_Initialize()
     pAuxSheetName = "ERB_Template_Chat"
     ' CSDP Timeline normilize
     ' RegExp: group #1 - timestamp, #2 - author, #3 - event full name
-    pTimeLine_RegExp = "(\d?\d:\d\d)? ?(\w{7})(.*)"
+    ' before 190606 pTimeLine_RegExp = "(\d?\d:\d\d)? ?(\w{7})(.*)"
+    pTimeLine_RegExp = "(\d?\d:\d\d)? ()(.*)"
     pTimeLine_CellAdrTrg = "J5"
     ' chat normilize
     ' RegExp: group #1 - raw header, #2 - author, #3 - author's surname, #4 - timestamp
-    pChat_RegExp = "^((\w* (.*)) (\d?\d:\d\d):)\s*$"
+    ' before 190606 pChat_RegExp = "^((\w* (.*)) (\d?\d:\d\d):)\s*$"
+    pChat_RegExp = "^((\w* (.*)) (\d?\d:\d\d[^:]*):)\s*$"
     pChat_CellAdrTrg = "L5"
     ' end normilize
 End Sub

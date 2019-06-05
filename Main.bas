@@ -474,6 +474,36 @@ Sub Main()
     reprintTimeline
     OutSheet.Activate
 End Sub
+Sub ClearAll()
+    Application.StatusBar = "Delete old output... in progress"
+    With OutSheet
+        chain_len = .[K5].End(xlDown).Row - .[L5].Row
+        timeline_width = .Cells(4, .Columns.Count).End(xlToLeft).Column - .[L4].Column + .Cells(4, .Columns.Count).End(xlToLeft).MergeArea.Cells.Count
+        With .[L5].Resize(chain_len, timeline_width)
+            .Clear
+            .Interior.PatternColorIndex = xlAutomatic
+        End With
+    End With
+    With OutSheet.Rows(OutputBegin & ":" & OutSheet.Rows.Count)
+        .Clear
+        .Interior.PatternColorIndex = xlAutomatic
+    End With
+    Application.StatusBar = "Delete old input... in progress"
+    With InSheet.Range(Settings.TimeLine_CellAdrTrg).Resize(InSheet.Rows.Count - InSheet.Range(Settings.TimeLine_CellAdrTrg).Row, InSheet.Cells(InSheet.Range(Settings.CSDP_HeaderAdress).Row, InSheet.Columns.Count).End(xlToLeft).Column)
+        .Clear
+    End With
+    With ActiveWorkbook
+        For Each sh In .Worksheets
+            If sh.Name = Settings.AuxSheetName Then
+                Application.DisplayAlerts = False
+                sh.Delete
+                Application.DisplayAlerts = True
+                Exit For
+            End If
+        Next sh
+    End With
+    Application.StatusBar = ""
+End Sub
 Function IsSheetHereByName(aName As String) As Boolean
     IsSheetHereByName = False
     For Each sh In Sheets
@@ -497,7 +527,7 @@ End Function
 Function EventShortName(aEventName As String) As String
     EventShortName = ""
     For Each Key In Events.Keys()
-        If InStr(aEventName, Events.Item(Key)) <> 0 Then
+        If InStr(aEventName, Events.Item(Key)) <> 0 Or InStr(Events.Item(Key), aEventName) <> 0 Then
             EventShortName = Key
             Exit Function
         End If
@@ -522,3 +552,4 @@ Function GetSheet(aSheetName As String) As Worksheet
         End If
     End With
 End Function
+
