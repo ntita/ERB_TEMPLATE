@@ -107,7 +107,7 @@ Private Sub Class_Initialize()
     ' chat normilize
     ' RegExp: group #1 - raw header, #2 - author, #3 - author's surname, #4 - timestamp
     ' before 190606 pChat_RegExp = "^((\w* (.*)) (\d?\d:\d\d):)\s*$"
-    pChat_RegExp = "^((\w* (.*)) (\d?\d:\d\d[^:]*):)\s*$"
+    pChat_RegExp = "^((.* (.*)) (\d?\d:\d\d[^:]*):)\s*$"
     pChat_CellAdrTrg = "L5"
     ' end normilize
 End Sub

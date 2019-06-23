@@ -261,7 +261,7 @@ Sub createERB_Template_Chat(CellAdrTrg As String)
                         .Cells(i, AuxColumns.DateOf) = .Cells(i - 1, AuxColumns.DateOf) ' если нет временной метки, то считаем, что она совпадает с предыдущей строкой
                     Else
                         .Cells(i, AuxColumns.DateOf) = CurDate + CDate(M.SubMatches(3)) ' время записи (четвёртая группа соответствия)
-                        If MainUTC <> UTC Then .Cells(i, AuxColumns.DateOf) = DateAdd("h", UTC - MainUTC, .Cells(i, AuxColumns.DateOf).Value)
+                        If MainUTC <> UTC Then .Cells(i, AuxColumns.DateOf) = DateAdd("h", MainUTC - UTC, .Cells(i, AuxColumns.DateOf).Value)
                     End If
                     If IsDate(.Cells(i - 1, AuxColumns.DateOf)) _
                       And .Cells(i, AuxColumns.DateOf) < .Cells(i - 1, AuxColumns.DateOf) _
@@ -390,7 +390,7 @@ Sub RecolorChat()
                 If cl.Row - OutputBegin + 1 > 0 Then Application.StatusBar = "Recolor chat #" & i & ": " & Format(Int(100 * (cl.Row - OutputBegin + 1) / amount), "##0") & "%" & String(CLng(20 * (cl.Row - OutputBegin + 1) / amount), ChrW(9632))
                 If cl.Value <> "" Then
                     For Each emp In Team.Keys()
-                        If InStr(cl.Value, emp) <> 0 Then
+                        If InStr(cl.Value, emp) <> 0 And Team(emp)(1) > -1 Then
                             cl.Interior.Color = OutSheet.Cells(Team(emp)(1) + 1, 9).Interior.Color
                             cl.Font.Color = OutSheet.Cells(Team(emp)(1) + 1, 9).Font.Color
                             Exit For
@@ -403,14 +403,75 @@ Sub RecolorChat()
     End With
     Application.StatusBar = ""
 End Sub
-Sub reprintTimeline()
+Sub insertNewTimelineStr(aAmount As Integer)
+    If (aAmount <= 0) Then
+        Exit Sub
+    End If
     With OutSheet
-        chain_len = .[K5].End(xlDown).Row - .[L5].Row
+        TeamCount = .[D4].End(xlDown).Row
+        InsertRow = .[K5].End(xlDown).Row
+        For Row = 1 To aAmount
+            rw = .[K5].End(xlDown).Row
+            .Cells(rw, "K").EntireRow.Insert
+            .Rows(rw).EntireRow.Interior.PatternColorIndex = xlAutomatic
+        Next Row
+        If (InsertRow <= TeamCount) Then
+            With .[D4].End(xlDown).End(xlDown).End(xlDown)
+                'Application.DisplayAlerts = False
+                .End(xlUp).Offset(0, -1).Resize(.Row - .End(xlUp).Row + 1, 7).Cut
+                OutSheet.[D4].End(xlDown).Offset(1, -1).Resize(.Row - .End(xlUp).Row + 1, 7).Insert Shift:=xlDown
+                'Application.DisplayAlerts = True
+            End With
+        End If
+    End With
+End Sub
+Sub clearTimeline()
+    With OutSheet
+        chain_len_free = .[L5].Offset(0, -1).End(xlDown).Row - .[L5].Row
+        chain_len = .[L5].Offset(0, -1).End(xlDown).End(xlDown).Row - .[L5].Row
         timeline_width = .Cells(4, .Columns.Count).End(xlToLeft).Column - .[L4].Column + .Cells(4, .Columns.Count).End(xlToLeft).MergeArea.Cells.Count
-        With .[L5].Resize(chain_len, timeline_width)
+        ' delete old output in 2 sections: free of subtables and with subtables
+        With .[L5].Resize(chain_len_free, timeline_width)
             .Clear
             .Interior.PatternColorIndex = xlAutomatic
         End With
+        With .[K5].Offset(chain_len_free, 7).Resize(chain_len - chain_len_free, timeline_width - 30)
+            .Clear
+            .Interior.PatternColorIndex = xlAutomatic
+        End With
+    End With
+End Sub
+Sub reprintTimeline()
+    With OutSheet
+        clearTimeline
+        chain_len = .[K5].End(xlDown).End(xlDown).Row - .[L5].Row
+        timeline_width = .Cells(4, .Columns.Count).End(xlToLeft).Column - .[L4].Column + .Cells(4, .Columns.Count).End(xlToLeft).MergeArea.Cells.Count
+        ' count amount of new lines
+        cr = .[L5].Row
+        cc = .[L5].Column
+        exam_cr = cr
+        exam_cc = cc
+        max_chain_len = chain_len
+        For Each cl In .Range(.Cells(OutputBegin, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp))
+            Application.StatusBar = "Reprint timeline: insert new lines"
+            If cl.Value = "RP" Or cl.Value = "RI" Or cl.Value = "ESt" Then
+                exam_cc = exam_cc + 26
+                cr = exam_cr
+                cc = exam_cc
+            End If
+            If cl.Value = "*" Then
+                If cr - .[L5].Row >= max_chain_len Then
+                    max_chain_len = max_chain_len + 1
+                End If
+                cr = cr + 1
+                cc = cc + 1
+            End If
+        Next cl
+        If max_chain_len > chain_len Then
+            ' insert new lines
+            insertNewTimelineStr (max_chain_len - chain_len)
+        End If
+        chain_len = max_chain_len
         cr = .[L5].Row
         cc = .[L5].Column
         exam_cr = cr
@@ -424,12 +485,6 @@ Sub reprintTimeline()
                 cc = exam_cc
             End If
             If cl.Value = "*" Then
-                If cr - .[L5].Row >= chain_len Then
-                    .Cells(cr - 1, cc).EntireRow.Insert
-                    .Cells(cr, "L").Resize(, timeline_width).Cut OutSheet.Cells(cr - 1, "L")
-                    .Cells(cr, "L").Resize(, timeline_width).Interior.PatternColorIndex = xlAutomatic
-                    '.Cells(cr, "C").Resize(.Cells(cr, "D").End(xlDown).Row - cr + 1, 7).Cut OutSheet.Cells(cr - 1, "C")
-                End If
                 With .Cells(cr, cc)
                     .Value = Format(cl.Offset(, 9).Value, "h:mm")
                     .Font.Size = 8
@@ -476,14 +531,7 @@ Sub Main()
 End Sub
 Sub ClearAll()
     Application.StatusBar = "Delete old output... in progress"
-    With OutSheet
-        chain_len = .[K5].End(xlDown).Row - .[L5].Row
-        timeline_width = .Cells(4, .Columns.Count).End(xlToLeft).Column - .[L4].Column + .Cells(4, .Columns.Count).End(xlToLeft).MergeArea.Cells.Count
-        With .[L5].Resize(chain_len, timeline_width)
-            .Clear
-            .Interior.PatternColorIndex = xlAutomatic
-        End With
-    End With
+    clearTimeline
     With OutSheet.Rows(OutputBegin & ":" & OutSheet.Rows.Count)
         .Clear
         .Interior.PatternColorIndex = xlAutomatic
@@ -552,4 +600,3 @@ Function GetSheet(aSheetName As String) As Worksheet
         End If
     End With
 End Function
-
