@@ -9,7 +9,7 @@ Private pMainUTC As Integer
 Private pTeam As Object
 Public CurDate As Date
 Public AdditionalCount As Integer
-Private pOutputBegin As Integer
+Public pOutputBegin As Integer
 Public Property Get MainUTC() As Integer
     If pMainUTC = 0 Then
         Set EMChatHeader = InSheet.Range(Settings.CSDP_HeaderAdress)
@@ -41,13 +41,15 @@ Public Property Get Events() As Object
     Set Events = pEvents
 End Property
 Public Property Get Team() As Object
+' Team is a dictionary (key, value) where key = name of teammate, value is a massive
+' value = [role,row,exist_flag], exist_flag is true when teammate is printed in teamlist
     If pTeam Is Nothing Then
         Set pTeam = CreateObject("Scripting.Dictionary")
         With OutSheet.[C2].CurrentRegion
             For Row = 3 To .Rows.Count
                 Key = CStr(.Cells(Row, 2).Value)
                 Item = Array(CStr(.Cells(Row, 1).Value), Row, False)
-                If Key <> "" Then
+                If Key <> "" And Not IsEmpty(Key) Then
                     pTeam.Add Key, Item
                 End If
             Next
@@ -55,6 +57,12 @@ Public Property Get Team() As Object
     End If
     Set Team = pTeam
 End Property
+Public Property Set Team(aTeam)
+    If aTeam Is Nothing Then
+        Set pTeam = Nothing
+    End If
+End Property
+
 Public Property Get InSheet() As Worksheet
     Dim SheetName As String
     SheetName = Settings.InSheetName
@@ -214,6 +222,7 @@ Sub createERB_Template_Chat(CellAdrTrg As String)
     UTC = Conversion.CInt(Right(InSheet.Range(CellAdrTrg).Offset(-1).Value, 3))
     'norm vars
     '****************************
+    Dim buffer As String
     Dim re As Object
     Set re = CreateObject("VBScript.RegExp")
     Dim CurDate As Date
@@ -272,9 +281,13 @@ Sub createERB_Template_Chat(CellAdrTrg As String)
                 Next M
             Else
                 If IsEmpty(.Cells(i, ccChatmessage)) Then
-                    .Cells(i, ccChatmessage) = cl
+                    buffer = CStr(cl.Value)
+                    If (Left(buffer, 1) = "=") Then
+                        buffer = " " & buffer
+                    End If
+                    .Cells(i, ccChatmessage) = buffer
                 Else
-                    .Cells(i, ccChatmessage) = .Cells(i, ccChatmessage) & vbLf & cl
+                    .Cells(i, ccChatmessage).Value = .Cells(i, ccChatmessage) & Chr(10) & CStr(cl)
                 End If
             End If
             .Cells(i, AuxColumns.ID) = i - 1 ' id записи (совпадает с номером строки)
@@ -373,7 +386,7 @@ Sub RenewTeamList()
             Key = CStr(.Cells(Row, 4).Value)
             If Key <> "" Then
                 If Not Team.Exists(Key) Then
-                    Item = Array("", -1, True)
+                    Item = Array("", addToTeamList(Key), True)
                     Team.Add Key, Item
                 Else
                     Team(Key) = Array(Team(Key)(0), Team(Key)(1), True)
@@ -383,6 +396,13 @@ Sub RenewTeamList()
     End With
 End Sub
 Sub RecolorChat()
+    Set Team = Nothing
+    RenewTeamList
+    For Each emp In Team.Keys()
+        If IsEmpty(emp) Then
+            pTeam.Remove Key
+        End If
+    Next emp
     With OutSheet
         For i = 0 To 20
             amount = .Range(.Cells(OutputBegin, OutColumns.ChatName_timestamp + i * 45), .Cells(.Rows.Count, OutColumns.ChatName_timestamp + i * 45).End(xlUp)).Rows.Count
@@ -390,7 +410,7 @@ Sub RecolorChat()
                 If cl.Row - OutputBegin + 1 > 0 Then Application.StatusBar = "Recolor chat #" & i & ": " & Format(Int(100 * (cl.Row - OutputBegin + 1) / amount), "##0") & "%" & String(CLng(20 * (cl.Row - OutputBegin + 1) / amount), ChrW(9632))
                 If cl.Value <> "" Then
                     For Each emp In Team.Keys()
-                        If InStr(cl.Value, emp) <> 0 And Team(emp)(1) > -1 Then
+                        If InStr(cl.Value, emp) <> 0 And Not IsEmpty(emp) And Team(emp)(1) > -1 Then
                             cl.Interior.Color = OutSheet.Cells(Team(emp)(1) + 1, 9).Interior.Color
                             cl.Font.Color = OutSheet.Cells(Team(emp)(1) + 1, 9).Font.Color
                             Exit For
@@ -436,6 +456,7 @@ Sub clearTimeline()
             .Interior.PatternColorIndex = xlAutomatic
         End With
         With .[K5].Offset(chain_len_free, 7).Resize(chain_len - chain_len_free, timeline_width - 30)
+            .UnMerge
             .Clear
             .Interior.PatternColorIndex = xlAutomatic
         End With
@@ -449,13 +470,23 @@ Sub reprintTimeline()
         ' count amount of new lines
         cr = .[L5].Row
         cc = .[L5].Column
+        initcc = cc
         exam_cr = cr
         exam_cc = cc
         max_chain_len = chain_len
         For Each cl In .Range(.Cells(OutputBegin, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp))
             Application.StatusBar = "Reprint timeline: insert new lines"
             If cl.Value = "RP" Or cl.Value = "RI" Or cl.Value = "ESt" Then
-                exam_cc = exam_cc + 26
+                If cl.Value = "RP" Then
+                    mlt = 1
+                ElseIf cl.Value = "RI" Then
+                    mlt = 2
+                ElseIf cl.Value = "ESt" Then
+                    mlt = 3
+                Else
+                    mlt = 0
+                End If
+                exam_cc = initcc + 26 * mlt
                 cr = exam_cr
                 cc = exam_cc
             End If
@@ -474,13 +505,23 @@ Sub reprintTimeline()
         chain_len = max_chain_len
         cr = .[L5].Row
         cc = .[L5].Column
+        initcc = cc
         exam_cr = cr
         exam_cc = cc
         amount = .Range(.Cells(OutputBegin, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp)).Rows.Count
         For Each cl In .Range(.Cells(OutputBegin, OutColumns.EV), .Cells(.Rows.Count, OutColumns.EV).End(xlUp))
             Application.StatusBar = "Reprint timeline: " & Format(Int(100 * (cl.Row - OutputBegin + 1) / amount), "##0") & "%" & String(CLng(20 * (cl.Row - OutputBegin + 1) / amount), ChrW(9632))
             If cl.Value = "RP" Or cl.Value = "RI" Or cl.Value = "ESt" Then
-                exam_cc = exam_cc + 26
+                If cl.Value = "RP" Then
+                    mlt = 1
+                ElseIf cl.Value = "RI" Then
+                    mlt = 2
+                ElseIf cl.Value = "ESt" Then
+                    mlt = 3
+                Else
+                    mlt = 0
+                End If
+                exam_cc = initcc + 26 * mlt
                 cr = exam_cr
                 cc = exam_cc
             End If
@@ -522,7 +563,7 @@ Sub reprintTimeline()
 End Sub
 Sub Main()
     normalize
-    RenewTeamList
+    'RenewTeamList
     outputCSDPnChat
     RenderCSDPnChat
     RecolorChat
@@ -535,6 +576,9 @@ Sub ClearAll()
     With OutSheet.Rows(OutputBegin & ":" & OutSheet.Rows.Count)
         .Clear
         .Interior.PatternColorIndex = xlAutomatic
+    End With
+    With OutSheet.[C2].CurrentRegion
+        .Range("A3:F" & .Rows.Count - 3).ClearContents
     End With
     Application.StatusBar = "Delete old input... in progress"
     With InSheet.Range(Settings.TimeLine_CellAdrTrg).Resize(InSheet.Rows.Count - InSheet.Range(Settings.TimeLine_CellAdrTrg).Row, InSheet.Cells(InSheet.Range(Settings.CSDP_HeaderAdress).Row, InSheet.Columns.Count).End(xlToLeft).Column)
@@ -600,3 +644,21 @@ Function GetSheet(aSheetName As String) As Worksheet
         End If
     End With
 End Function
+Function addToTeamList(aKey) As Integer
+    addToTeamList = -1
+    If IsEmpty(aKey) Then
+        Exit Function
+    End If
+    Dim cl As Range
+    With OutSheet.[C2].CurrentRegion
+        If IsEmpty(.Range("B2").Offset(1, 0)) Then
+            Set cl = .Range("B2").Offset(1, 0)
+        Else
+            
+            Set cl = .Range("B2").End(xlDown).Offset(1, 0)
+        End If
+        cl = aKey
+        addToTeamList = cl.Row
+    End With
+End Function
+
